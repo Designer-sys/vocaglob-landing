@@ -6,37 +6,34 @@ export default function ContactPage() {
   const [form, setForm] = useState({
     name: "",
     email: "",
-    signupDate: "",
-    complaint: "",
+    signupDate: "", // <-- added signup date field
+    message: "",
   });
 
-  const handleSubmit = async (e: any) => {
+  const [status, setStatus] = useState(""); // submission status
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setStatus("Sending...");
 
     try {
       const res = await fetch("/api/contact", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
 
-      if (res.ok) {
-        alert("Your message has been sent to Vocaglob support.");
+      const data = await res.json();
 
-        // reset form after submission
-        setForm({
-          name: "",
-          email: "",
-          signupDate: "",
-          complaint: "",
-        });
+      if (res.ok && data.success) {
+        setStatus("Your message has been sent successfully!");
+        setForm({ name: "", email: "", signupDate: "", message: "" });
       } else {
-        alert("There was an error sending your message. Please try again.");
+        setStatus(data.message || "Error sending message. Please try again.");
       }
     } catch (error) {
-      alert("Network error. Please try again.");
+      console.error(error);
+      setStatus("Network error. Please try again.");
     }
   };
 
@@ -45,13 +42,12 @@ export default function ContactPage() {
       <h1 className="text-3xl font-bold mb-6">Contact Vocaglob Support</h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-
         <input
           className="w-full border p-3"
           placeholder="Full Name"
           required
           value={form.name}
-          onChange={(e)=>setForm({...form,name:e.target.value})}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
         />
 
         <input
@@ -60,7 +56,7 @@ export default function ContactPage() {
           type="email"
           required
           value={form.email}
-          onChange={(e)=>setForm({...form,email:e.target.value})}
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
         />
 
         <div>
@@ -72,7 +68,7 @@ export default function ContactPage() {
             type="date"
             required
             value={form.signupDate}
-            onChange={(e)=>setForm({...form,signupDate:e.target.value})}
+            onChange={(e) => setForm({ ...form, signupDate: e.target.value })}
           />
         </div>
 
@@ -81,15 +77,19 @@ export default function ContactPage() {
           placeholder="Describe your issue"
           rows={5}
           required
-          value={form.complaint}
-          onChange={(e)=>setForm({...form,complaint:e.target.value})}
+          value={form.message}
+          onChange={(e) => setForm({ ...form, message: e.target.value })}
         />
 
-        <button className="bg-blue-600 text-white px-6 py-3 rounded">
-          Submit Complaint
+        <button
+          type="submit"
+          className="bg-blue-600 text-white px-6 py-3 rounded"
+        >
+          Submit
         </button>
-
       </form>
+
+      {status && <p className="mt-4 text-center">{status}</p>}
     </div>
   );
 }
