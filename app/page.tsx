@@ -132,7 +132,28 @@ export default function Home() {
           Coming Soon on Google Play
         </button>
       </section>
+{/* Footer */}
+<footer className="mt-8 py-8 text-center border-t bg-white">
+  <p className="text-gray-600 mb-3">
+    © 2026 Vocaglob. All rights reserved.
+  </p>
 
+  <div className="flex justify-center gap-6">
+    <Link
+      href="/contact"
+      className="text-gray-700 hover:text-blue-600 underline font-medium"
+    >
+      Contact
+    </Link>
+
+    <Link
+      href="/privacy"
+      className="text-gray-700 hover:text-blue-600 underline font-medium"
+    >
+      Privacy Policy
+    </Link>
+  </div>
+</footer>
     </main>
   );
 }
