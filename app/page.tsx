@@ -152,6 +152,13 @@ export default function Home() {
     >
       Privacy Policy
     </Link>
+
+      <Link
+        href="/delete-account"
+        className="text-gray-700 hover:text-blue-600 underline font-medium"
+    >
+        Delete Account
+    </Link>
   </div>
 </footer>
     </main>
