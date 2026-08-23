@@ -1,13 +1,46 @@
 import { NextResponse } from "next/server";
-import { adminAuth, adminDb } from "../../../lib/firebaseAdmin";
-import { FieldValue } from "firebase-admin/firestore";
 import crypto from "crypto";
 
-function hashToken(token: string) {
+const TOKEN_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
+
+function getEncryptionKey() {
+  const secret = process.env.DELETE_REQUEST_SECRET;
+
+  if (!secret) {
+    throw new Error("DELETE_REQUEST_SECRET is not configured.");
+  }
+
   return crypto
     .createHash("sha256")
-    .update(token)
-    .digest("hex");
+    .update(secret)
+    .digest();
+}
+
+function encryptRequest(data: Record<string, string>) {
+  const key = getEncryptionKey();
+
+  const iv = crypto.randomBytes(12);
+
+  const cipher = crypto.createCipheriv(
+    "aes-256-gcm",
+    key,
+    iv
+  );
+
+  const plaintext = JSON.stringify(data);
+
+  const encrypted = Buffer.concat([
+    cipher.update(plaintext, "utf8"),
+    cipher.final(),
+  ]);
+
+  const authTag = cipher.getAuthTag();
+
+  return [
+    iv.toString("base64url"),
+    authTag.toString("base64url"),
+    encrypted.toString("base64url"),
+  ].join(".");
 }
 
 async function sendBrevoEmail({
@@ -66,69 +99,55 @@ export async function POST(req: Request) {
     const reason = String(body.reason || "").trim();
     const confirmation = body.confirmation === true;
 
-    if (!name || !email || !confirmation) {
+    if (!name || !email || !signupDate || !confirmation) {
       return NextResponse.json(
         {
           success: false,
           message:
-            "Please provide your name, VOCAGLOB account email, and confirmation.",
+            "Please provide your full name, VOCAGLOB account email, signup date, and confirmation.",
         },
         { status: 400 }
       );
     }
 
-    // Look up the account server-side.
-    // We deliberately do not reveal whether an account exists.
-    let user;
+    const emailPattern =
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    try {
-      user = await adminAuth.getUserByEmail(email);
-    } catch (error: any) {
-      if (error?.code === "auth/user-not-found") {
-        return NextResponse.json({
-          success: true,
+    if (!emailPattern.test(email)) {
+      return NextResponse.json(
+        {
+          success: false,
           message:
-            "If the email address is associated with a VOCAGLOB account, a verification email will be sent to that address.",
-        });
-      }
-
-      throw error;
+            "Please provide a valid VOCAGLOB account email address.",
+        },
+        { status: 400 }
+      );
     }
 
-    const verificationToken = crypto.randomBytes(32).toString("hex");
-    const tokenHash = hashToken(verificationToken);
+    const requestData = {
+      name,
+      email,
+      signupDate,
+      reason,
+      expiresAt: String(
+        Date.now() + TOKEN_EXPIRY_MS
+      ),
+    };
 
-    const expiresAt = new Date(
-      Date.now() + 30 * 60 * 1000
-    );
+    const token = encryptRequest(requestData);
 
-    const requestRef = await adminDb
-      .collection("deletionRequests")
-      .add({
-        uid: user.uid,
-        email,
-        name,
-        signupDate: signupDate || null,
-        reason: reason || null,
-
-        status: "pending_email_verification",
-
-        tokenHash,
-
-        createdAt: FieldValue.serverTimestamp(),
-        expiresAt,
-        verifiedAt: null,
-        processedAt: null,
-      });
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "https://www.vocaglob.com";
 
     const verificationUrl =
-      `${process.env.NEXT_PUBLIC_SITE_URL}` +
-      `/delete-account/verify?request=${requestRef.id}&token=${verificationToken}`;
+      `${siteUrl}/delete-account/verify?token=${encodeURIComponent(token)}`;
 
     await sendBrevoEmail({
       to: email,
       toName: name,
-      subject: "VOCAGLOB account deletion verification",
+      subject:
+        "VOCAGLOB account deletion verification",
       htmlContent: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6;">
           <h2>VOCAGLOB Account Deletion Request</h2>
@@ -140,8 +159,8 @@ export async function POST(req: Request) {
           </p>
 
           <p>
-            To confirm that you have access to the email address
-            associated with your VOCAGLOB account, please click the
+            To verify that you control the email address
+            associated with the request, please click the
             button below.
           </p>
 
@@ -166,8 +185,8 @@ export async function POST(req: Request) {
           </p>
 
           <p>
-            If you did not request account deletion, you can safely
-            ignore this email.
+            If you did not request account deletion,
+            you can safely ignore this email.
           </p>
 
           <p>
@@ -184,7 +203,10 @@ export async function POST(req: Request) {
         "If the email address is associated with a VOCAGLOB account, a verification email will be sent to that address.",
     });
   } catch (error) {
-    console.error("Deletion request error:", error);
+    console.error(
+      "Deletion request error:",
+      error
+    );
 
     return NextResponse.json(
       {

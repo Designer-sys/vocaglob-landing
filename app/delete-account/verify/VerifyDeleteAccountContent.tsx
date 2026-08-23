@@ -6,14 +6,15 @@ import { useSearchParams } from "next/navigation";
 export default function VerifyDeleteAccountContent() {
   const searchParams = useSearchParams();
 
-  const [status, setStatus] = useState("Verifying your request...");
+  const [status, setStatus] = useState(
+    "Verifying your request..."
+  );
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    const requestId = searchParams.get("request");
     const token = searchParams.get("token");
 
-    if (!requestId || !token) {
+    if (!token) {
       setStatus("Invalid verification link.");
       return;
     }
@@ -28,7 +29,6 @@ export default function VerifyDeleteAccountContent() {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              requestId,
               token,
             }),
           }
@@ -46,6 +46,7 @@ export default function VerifyDeleteAccountContent() {
         );
       } catch (error) {
         console.error(error);
+
         setStatus(
           "We could not verify your request. Please try again later."
         );
@@ -63,15 +64,18 @@ export default function VerifyDeleteAccountContent() {
 
       <div
         className={`border rounded-lg p-6 ${
-          success ? "bg-green-50" : "bg-gray-50"
+          success
+            ? "bg-green-50"
+            : "bg-gray-50"
         }`}
       >
         <p className="text-lg">{status}</p>
 
         {success && (
           <p className="mt-4">
-            VOCAGLOB Support will process your request. You do
-            not need to submit the form again.
+            VOCAGLOB Support will process your
+            request. You do not need to submit
+            the form again.
           </p>
         )}
       </div>

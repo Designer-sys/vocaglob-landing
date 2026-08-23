@@ -148,13 +148,14 @@ export default function DeleteAccountPage() {
             Date you signed up for VOCAGLOB
             <span className="font-normal text-gray-500">
               {" "}
-              (optional)
+              (required)
             </span>
           </label>
 
           <input
             className="w-full border rounded p-3"
             type="date"
+            required
             value={form.signupDate}
             onChange={(e) =>
               setForm({
@@ -162,7 +163,14 @@ export default function DeleteAccountPage() {
                 signupDate: e.target.value,
               })
             }
-          />
+          />  
+
+          <p className="text-sm text-gray-600 mt-1">
+  Please enter the date you signed up for VOCAGLOB.
+  If you do not remember the exact date, enter your
+  best estimate. This information will help us identify
+  your account and process your deletion request.
+</p>
         </div>
 
         <div>
